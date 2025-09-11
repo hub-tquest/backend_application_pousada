@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_number": "724861824423",
+    "project_id": "pousada-chapada",
+    "storage_bucket": "pousada-chapada.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:724861824423:android:0bc10ca7e8ecf5a47c9a82",
+        "android_client_info": {
+          "package_name": "br.engenharia.dev.com.flutter_application_pousada"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "724861824423-coacu6fgbmtr9jckbno0erudjtus5mpm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "br.engenharia.dev.com.flutter_application_pousada",
+            "certificate_hash": "fb8e55dc2fa946eb8b919e72e1729f4a47fa236c"
+          }
+        },
+        {
+          "client_id": "724861824423-8n8iug8uaujba0eh4dk923s72dc2ofl0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCpm6nJiXtX6dA5NwUxpEpy13kbGod7JEk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "724861824423-8n8iug8uaujba0eh4dk923s72dc2ofl0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "724861824423-md667mttl1l0knnajc0m6qt05p5mn69o.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.pousadaApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:724861824423:android:dc5a5453070177cb7c9a82",
+        "android_client_info": {
+          "package_name": "com.example.pousada_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "724861824423-8n8iug8uaujba0eh4dk923s72dc2ofl0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCpm6nJiXtX6dA5NwUxpEpy13kbGod7JEk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "724861824423-8n8iug8uaujba0eh4dk923s72dc2ofl0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "724861824423-md667mttl1l0knnajc0m6qt05p5mn69o.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.pousadaApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
