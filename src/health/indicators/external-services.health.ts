@@ -16,7 +16,6 @@ export class ExternalServicesHealthIndicator extends HealthIndicator {
 
   async checkMercadoPago(key: string): Promise<HealthIndicatorResult> {
     try {
-      // Verificar API do Mercado Pago
       const accessToken = this.configService.get('MERCADOPAGO_ACCESS_TOKEN');
       if (!accessToken) {
         return this.getStatus(key, false, {
@@ -24,19 +23,12 @@ export class ExternalServicesHealthIndicator extends HealthIndicator {
         });
       }
 
-      // Usar pingCheck em vez de get - CORREÇÃO
-      // Teste básico de conectividade com endpoint público
-      return await this.http.pingCheck(
-        key,
-        'https://api.mercadopago.com/v1/payment_methods',
-        {
-          timeout: 5000,
-        },
-      );
+      // Usar página pública do Mercado Pago para health check
+      return await this.http.pingCheck(key, 'https://www.mercadopago.com.br', {
+        timeout: 5000,
+      });
     } catch (error) {
       this.logger.warn('Mercado Pago health check warning:', error.message);
-      // Para ambiente de desenvolvimento, podemos considerar como healthy
-      // mesmo com warnings
       if (process.env.NODE_ENV === 'development') {
         return this.getStatus(key, true, {
           message: 'Development mode - partial connectivity',
@@ -55,18 +47,12 @@ export class ExternalServicesHealthIndicator extends HealthIndicator {
         });
       }
 
-      // Usar pingCheck em vez de get - CORREÇÃO
-      // Teste básico de conectividade com a API da Groq
-      return await this.http.pingCheck(
-        key,
-        'https://api.groq.com/openai/v1/models',
-        {
-          timeout: 5000,
-        },
-      );
+      // Usar página pública da Groq para health check
+      return await this.http.pingCheck(key, 'https://groq.com', {
+        timeout: 5000,
+      });
     } catch (error) {
       this.logger.warn('Groq health check warning:', error.message);
-      // Para ambiente de desenvolvimento
       if (process.env.NODE_ENV === 'development') {
         return this.getStatus(key, true, {
           message: 'Development mode - partial connectivity',

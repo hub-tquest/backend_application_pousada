@@ -5,7 +5,9 @@ import {
   HealthCheckResult,
 } from '@nestjs/terminus';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { HealthService } from '../../src/health/health.service';
+import { FirebaseHealthIndicator } from './indicators/firebase.health';
+import { DatabaseHealthIndicator } from './indicators/database.health';
+import { ExternalServicesHealthIndicator } from './indicators/external-services.health';
 
 @ApiTags('Health')
 @Controller('health')
@@ -14,7 +16,9 @@ export class HealthController {
 
   constructor(
     private readonly health: HealthCheckService,
-    private readonly healthService: HealthService,
+    private readonly firebaseHealth: FirebaseHealthIndicator,
+    private readonly databaseHealth: DatabaseHealthIndicator,
+    private readonly externalServicesHealth: ExternalServicesHealthIndicator,
   ) {}
 
   @Get()
@@ -26,53 +30,17 @@ export class HealthController {
   @ApiResponse({
     status: 200,
     description: 'Todos os serviços estão funcionando corretamente',
-    schema: {
-      example: {
-        status: 'ok',
-        info: {
-          database: { status: 'up' },
-          firebase: { status: 'up' },
-          mercadopago: { status: 'up' },
-          groq: { status: 'up' },
-        },
-        error: {},
-        details: {
-          database: { status: 'up' },
-          firebase: { status: 'up' },
-          mercadopago: { status: 'up' },
-          groq: { status: 'up' },
-        },
-      },
-    },
   })
   @ApiResponse({
     status: 503,
     description: 'Algum serviço está indisponível',
-    schema: {
-      example: {
-        status: 'error',
-        info: {
-          database: { status: 'up' },
-          firebase: { status: 'up' },
-        },
-        error: {
-          mercadopago: {
-            status: 'down',
-            message: 'Serviço Mercado Pago indisponível',
-          },
-        },
-        details: {
-          database: { status: 'up' },
-          firebase: { status: 'up' },
-          mercadopago: { status: 'down' },
-          groq: { status: 'up' },
-        },
-      },
-    },
   })
   async checkHealth(): Promise<HealthCheckResult> {
     this.logger.log('Health check requested');
-    return this.healthService.checkAllServices();
+    return this.health.check([
+      () => this.databaseHealth.isHealthy('database'),
+      () => this.firebaseHealth.isHealthy('firebase'),
+    ]);
   }
 
   @Get('simple')
@@ -83,13 +51,6 @@ export class HealthController {
   @ApiResponse({
     status: 200,
     description: 'Aplicação está funcionando',
-    schema: {
-      example: {
-        status: 'healthy',
-        timestamp: '2025-09-14T18:00:00.000Z',
-        uptime: 3600,
-      },
-    },
   })
   async simpleHealth() {
     return {
@@ -109,25 +70,27 @@ export class HealthController {
   @ApiResponse({ status: 200, description: 'Banco de dados está acessível' })
   @ApiResponse({ status: 503, description: 'Banco de dados está inacessível' })
   async checkDatabase() {
-    return this.healthService.checkDatabase();
+    return this.health.check([() => this.databaseHealth.isHealthy('database')]);
   }
 
   @Get('external')
   @HealthCheck()
   @ApiOperation({
     summary: 'Verificação de serviços externos',
-    description:
-      'Verifica a disponibilidade de serviços externos como Mercado Pago e Groq',
+    description: 'Verifica a disponibilidade de serviços externos',
   })
   @ApiResponse({
     status: 200,
-    description: 'Todos os serviços externos estão acessíveis',
+    description: 'Serviços externos estão acessíveis',
   })
   @ApiResponse({
     status: 503,
     description: 'Algum serviço externo está inacessível',
   })
   async checkExternalServices() {
-    return this.healthService.checkExternalServices();
+    return this.health.check([
+      () => this.externalServicesHealth.checkMercadoPago('mercadopago'),
+      () => this.externalServicesHealth.checkGroq('groq'),
+    ]);
   }
 }

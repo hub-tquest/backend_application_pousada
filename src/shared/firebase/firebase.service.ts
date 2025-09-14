@@ -2,8 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 import * as path from 'path';
 import * as fs from 'fs';
-import { Firestore } from 'firebase-admin/firestore';
-import { getMessaging, Messaging } from 'firebase-admin/messaging'; // Importe getMessaging e Messaging
 
 export interface AppUser {
   uid: string;
@@ -12,10 +10,6 @@ export interface AppUser {
   photoURL: string | null;
   emailVerified: boolean;
   disabled: boolean;
-  // Adicione outros campos conforme necessário, por exemplo:
-  // phoneNumber?: string | null;
-  // creationTime?: string;
-  // lastSignInTime?: string;
 }
 
 @Injectable()
@@ -23,9 +17,8 @@ export class FirebaseService {
   public auth: admin.auth.Auth;
   public db: admin.firestore.Firestore;
   public storage: admin.storage.Storage;
-  public messaging: Messaging; // Declare a propriedade messaging com o tipo correto
+  public messaging: admin.messaging.Messaging;
   private readonly logger = new Logger(FirebaseService.name);
-  private static isInitialized = false;
 
   constructor() {
     this.logger.log('Initializing Firebase Service');
@@ -34,57 +27,70 @@ export class FirebaseService {
 
   private initializeFirebase(): void {
     try {
-      if (FirebaseService.isInitialized) {
-        this.logger.log(
-          'Firebase already initialized, using existing instance',
-        );
-        this.setupServices();
-        return;
-      }
+      // Sempre tentar inicializar um novo app
+      if (admin.apps.length === 0) {
+        this.logger.log('No Firebase app found, initializing new app');
 
-      if (admin.apps.length > 0) {
-        this.logger.log('Using existing Firebase app');
-        this.setupServices();
-        FirebaseService.isInitialized = true;
-        return;
-      }
+        // Primeiro tentar com variáveis de ambiente
+        if (
+          process.env.FIREBASE_PROJECT_ID &&
+          process.env.FIREBASE_PRIVATE_KEY &&
+          process.env.FIREBASE_CLIENT_EMAIL
+        ) {
+          this.logger.log(
+            'Using environment variables for Firebase initialization',
+          );
 
-      const serviceAccountPath = path.resolve(
-        __dirname,
-        '../../../firebase-service-account.json',
-      );
-
-      if (fs.existsSync(serviceAccountPath)) {
-        try {
-          const serviceAccount = require(serviceAccountPath);
+          const serviceAccount = {
+            type: 'service_account',
+            project_id: process.env.FIREBASE_PROJECT_ID,
+            private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+            private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(
+              /\\n/g,
+              '\n',
+            ),
+            client_email: process.env.FIREBASE_CLIENT_EMAIL,
+            client_id: process.env.FIREBASE_CLIENT_ID,
+            auth_uri:
+              process.env.FIREBASE_AUTH_URI ||
+              'https://accounts.google.com/o/oauth2/auth',
+            token_uri:
+              process.env.FIREBASE_TOKEN_URI ||
+              'https://oauth2.googleapis.com/token',
+            auth_provider_x509_cert_url:
+              process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL ||
+              'https://www.googleapis.com/oauth2/v1/certs',
+            client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
+          };
 
           admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-            projectId: 'pousada-chapada',
+            credential: admin.credential.cert(serviceAccount as any),
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            databaseURL: process.env.FIREBASE_DATABASE_URL,
           });
 
           this.logger.log(
-            'Firebase initialized with service account and explicit project ID',
+            'Firebase initialized with environment variables successfully',
           );
-        } catch (error) {
-          this.logger.error('Error loading service account:', error);
+        } else {
+          // Fallback para desenvolvimento
+          this.logger.warn(
+            'Firebase environment variables not found, using default initialization',
+          );
           admin.initializeApp({
             projectId: 'pousada-chapada',
           });
         }
       } else {
-        this.logger.warn(
-          'Service account file not found, using project ID config',
-        );
-        admin.initializeApp({
-          projectId: 'pousada-chapada',
-        });
+        this.logger.log('Using existing Firebase app');
       }
 
       this.setupServices();
-      FirebaseService.isInitialized = true;
     } catch (error) {
-      this.logger.error('Firebase initialization error:', error);
+      this.logger.error('Firebase initialization error:', {
+        message: error.message,
+        stack: error.stack,
+      });
       throw new Error(`Firebase initialization failed: ${error.message}`);
     }
   }
@@ -94,83 +100,68 @@ export class FirebaseService {
       this.auth = admin.auth();
       this.db = admin.firestore();
       this.storage = admin.storage();
-      this.messaging = getMessaging(); // <-- Esta é a linha correta
+      this.messaging = admin.messaging();
 
-      // Só chamar settings() se o Firestore ainda não foi configurado
+      // Configurar Firestore
       try {
         this.db.settings({
           ignoreUndefinedProperties: true,
         });
-        this.logger.log('Firestore settings applied');
       } catch (settingsError) {
-        this.logger.log('Firestore settings already applied, skipping');
+        this.logger.log('Firestore settings already applied or not needed');
       }
 
       this.logger.log('Firebase services initialized successfully');
     } catch (error) {
       this.logger.error('Error setting up Firebase services:', error);
-      throw error;
+      // Não lançar erro aqui para permitir inicialização parcial
+      this.logger.warn('Firebase services partially initialized');
     }
   }
 
-  async sendMessage(message: admin.messaging.Message): Promise<string> {
+  // Método para enviar mensagens FCM
+  async sendPushNotification(token: string, payload: any): Promise<any> {
     try {
+      // Verificar se messaging está disponível
+      if (!this.messaging) {
+        this.logger.warn('Firebase Messaging not available');
+        return { success: false, message: 'Messaging service not available' };
+      }
+
+      const message = {
+        token: token,
+        notification: {
+          title: payload.title,
+          body: payload.body,
+        },
+        data: payload.data || {},
+      };
+
       const response = await this.messaging.send(message);
       this.logger.log(`Successfully sent message: ${response}`);
       return response;
     } catch (error) {
-      this.logger.error('Error sending FCM message:', error);
-      throw new Error(`Failed to send FCM message: ${error.message}`);
+      this.logger.error('Error sending push notification:', error);
+      throw error;
     }
   }
 
-  // Método para se inscrever em tópicos (opcional)
-  async subscribeToTopic(
-    tokens: string[],
-    topic: string,
-  ): Promise<admin.messaging.MessagingTopicManagementResponse> {
-    try {
-      const response = await this.messaging.subscribeToTopic(tokens, topic);
-      this.logger.log(`Successfully subscribed to topic ${topic}`);
-      return response;
-    } catch (error) {
-      this.logger.error(`Error subscribing to topic ${topic}:`, error);
-      throw new Error(`Failed to subscribe to topic: ${error.message}`);
-    }
-  }
-
-  // Método para se desinscrever de tópicos (opcional)
-  async unsubscribeFromTopic(
-    tokens: string[],
-    topic: string,
-  ): Promise<admin.messaging.MessagingTopicManagementResponse> {
-    try {
-      const response = await this.messaging.unsubscribeFromTopic(tokens, topic);
-      this.logger.log(`Successfully unsubscribed from topic ${topic}`);
-      return response;
-    } catch (error) {
-      this.logger.error(`Error unsubscribing from topic ${topic}:`, error);
-      throw new Error(`Failed to unsubscribe from topic: ${error.message}`);
-    }
-  }
-
-  // Método adicionado para compatibilidade com Firestore
-  public getFirestore(): Firestore {
+  // Métodos existentes...
+  public getFirestore(): admin.firestore.Firestore {
     return this.db;
   }
 
   async getUserById(uid: string): Promise<AppUser | null> {
     try {
+      if (!this.auth) {
+        return await this.getUserFromFirestore(uid);
+      }
+
       this.logger.log(
         `[GET_USER_BY_ID] Attempting to get user by ID from Firebase Auth: ${uid}`,
       );
-      // Tenta buscar no Firebase Authentication primeiro (caminho padrão)
       const user = await this.auth.getUser(uid);
-      this.logger.log(
-        `[GET_USER_BY_ID] User found in Firebase Auth: ${user.uid}`,
-      );
 
-      // Converter admin.auth.UserRecord para AppUser
       return {
         uid: user.uid,
         email: user.email,
@@ -178,10 +169,8 @@ export class FirebaseService {
         photoURL: user.photoURL,
         emailVerified: user.emailVerified,
         disabled: user.disabled,
-        // phoneNumber: user.phoneNumber || null, // Se existir no UserRecord
       };
     } catch (authError) {
-      // Se falhar por permissões ou usuário não encontrado no Auth, tenta no Firestore
       if (
         authError.code === 'auth/user-not-found' ||
         authError.code === 'auth/insufficient-permission'
@@ -189,43 +178,8 @@ export class FirebaseService {
         this.logger.warn(
           `[GET_USER_BY_ID] User not found in Firebase Auth or insufficient permissions. Falling back to Firestore lookup for UID: ${uid}`,
         );
-
-        try {
-          const userDoc = await this.db.collection('users').doc(uid).get();
-          if (userDoc.exists) {
-            const userData = userDoc.data();
-            this.logger.log(
-              `[GET_USER_BY_ID] User found in Firestore: ${userData.uid}`,
-            );
-
-            // Criar um objeto AppUser a partir dos dados do Firestore
-            const appUser: AppUser = {
-              uid: userData.uid,
-              email: userData.email,
-              displayName: userData.name || null,
-              photoURL: userData.photoURL || null,
-              emailVerified: userData.emailVerified || false,
-              disabled: false, // Usuários do Firestore são considerados ativos por padrão
-            };
-
-            return appUser;
-          } else {
-            this.logger.warn(
-              `[GET_USER_BY_ID] User not found in Firestore either: ${uid}`,
-            );
-            return null;
-          }
-        } catch (firestoreError) {
-          this.logger.error(
-            `[GET_USER_BY_ID] Error fetching user from Firestore ${uid}:`,
-            firestoreError,
-          );
-          // Em caso de erro no Firestore, retornamos null
-          // pois o usuário não pôde ser encontrado nem no Auth nem no Firestore
-          return null;
-        }
+        return await this.getUserFromFirestore(uid);
       } else {
-        // Se for outro erro (rede, etc), relança
         this.logger.error(
           `[GET_USER_BY_ID] Unexpected error fetching user ${uid} from Firebase Auth:`,
           authError,
@@ -235,8 +189,47 @@ export class FirebaseService {
     }
   }
 
+  private async getUserFromFirestore(uid: string): Promise<AppUser | null> {
+    try {
+      const userDoc = await this.db.collection('users').doc(uid).get();
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        this.logger.log(
+          `[GET_USER_BY_ID] User found in Firestore: ${userData.uid}`,
+        );
+
+        const appUser: AppUser = {
+          uid: userData.uid,
+          email: userData.email,
+          displayName: userData.name || null,
+          photoURL: userData.photoURL || null,
+          emailVerified: userData.emailVerified || false,
+          disabled: false,
+        };
+
+        return appUser;
+      } else {
+        this.logger.warn(
+          `[GET_USER_BY_ID] User not found in Firestore either: ${uid}`,
+        );
+        return null;
+      }
+    } catch (firestoreError) {
+      this.logger.error(
+        `[GET_USER_BY_ID] Error fetching user from Firestore ${uid}:`,
+        firestoreError,
+      );
+      return null;
+    }
+  }
+
   async getUserByEmail(email: string): Promise<admin.auth.UserRecord | null> {
     try {
+      if (!this.auth) {
+        this.logger.warn('Firebase Auth not available for getUserByEmail');
+        return null;
+      }
+
       return await this.auth.getUserByEmail(email);
     } catch (error) {
       if (error.code === 'auth/user-not-found') {
@@ -310,14 +303,12 @@ export class FirebaseService {
         return { valid: false };
       }
 
-      const tokenData = tokenDoc.data() as any; // ou tipar corretamente se tiver a interface
+      const tokenData = tokenDoc.data() as any;
 
-      // Verificar se o token foi revogado
       if (tokenData.revoked) {
         return { valid: false };
       }
 
-      // Verificar se o token expirou
       if (tokenData.expiresAt.toDate() < new Date()) {
         return { valid: false };
       }

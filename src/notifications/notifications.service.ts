@@ -58,7 +58,7 @@ export class NotificationsService {
   ): Promise<void> {
     try {
       // Verificar se o usuário tem token FCM
-      const userDoc = await this.firebaseService.db // Use this.firebaseService.db
+      const userDoc = await this.firebaseService.db
         .collection('users')
         .doc(notification.userId)
         .get();
@@ -80,26 +80,21 @@ export class NotificationsService {
         return;
       }
 
-      // Enviar notificação push via FCM usando o método do FirebaseService
-      await this.firebaseService.sendMessage({
-        // Use this.firebaseService.sendMessage
-        token: fcmToken,
-        notification: {
-          title: notification.title,
-          body: notification.body,
-        },
+      // Enviar notificação push via FCM usando o método correto
+      await this.firebaseService.sendPushNotification(fcmToken, {
+        title: notification.title,
+        body: notification.body,
         data: {
-          // Corrigido: 'data' em vez de 'metadata'
           notificationId: notification.id,
           type: notification.type,
-          ...(notification.metadata || {}), // Espalhe os metadados, se existirem
+          ...notification.metadata,
         },
       });
 
       this.logger.log(`Push notification sent to user: ${notification.userId}`);
     } catch (error) {
       this.logger.error(`Error sending push notification: ${error.message}`);
-      // Não lance o erro novamente aqui para não interromper a criação da notificação
+      throw error;
     }
   }
 
