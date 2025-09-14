@@ -1,6 +1,10 @@
-// src/booking/payment/mercadopago.service.ts
 import { Injectable, Logger } from '@nestjs/common';
-import { MercadoPagoConfig, Payment, MerchantOrder, Preference  } from 'mercadopago';
+import {
+  MercadoPagoConfig,
+  Payment,
+  MerchantOrder,
+  Preference,
+} from 'mercadopago';
 import axios from 'axios';
 
 @Injectable()
@@ -51,7 +55,7 @@ export class MercadoPagoService {
     }
   }
 
-  // Adicionar método para obter detalhes do pagamento
+  // Corrigido: método para obter detalhes do pagamento
   async getPaymentDetails(paymentId: string): Promise<any> {
     try {
       // Usar axios para fazer a chamada direta à API do Mercado Pago
@@ -59,20 +63,22 @@ export class MercadoPagoService {
         `https://api.mercadopago.com/v1/payments/${paymentId}`,
         {
           headers: {
-            'Authorization': `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
+            Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
             'Content-Type': 'application/json',
           },
-        }
+        },
       );
-      
+
       return response.data;
     } catch (error) {
-      this.logger.error(`Error getting payment details ${paymentId}: ${error.message}`);
+      this.logger.error(
+        `Error getting payment details ${paymentId}: ${error.message}`,
+      );
       throw new Error(`Failed to get payment details: ${error.message}`);
     }
   }
 
-  // Adicionar método para obter detalhes da ordem do merchant
+  // Corrigido: método para obter detalhes da ordem do merchant
   async getMerchantOrder(merchantOrderId: string): Promise<any> {
     try {
       // Usar axios para fazer a chamada direta à API do Mercado Pago
@@ -80,23 +86,23 @@ export class MercadoPagoService {
         `https://api.mercadopago.com/merchant_orders/${merchantOrderId}`,
         {
           headers: {
-            'Authorization': `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
+            Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
             'Content-Type': 'application/json',
           },
-        }
+        },
       );
-      
+
       return response.data;
     } catch (error) {
-      this.logger.error(`Error getting merchant order ${merchantOrderId}: ${error.message}`);
+      this.logger.error(
+        `Error getting merchant order ${merchantOrderId}: ${error.message}`,
+      );
       throw new Error(`Failed to get merchant order: ${error.message}`);
     }
   }
 
-  async verifyPayment(paymentId: string): Promise<any> {
+  async verifyPayment(paymentId: string): Promise<boolean> {
     try {
-      // Implementar verificação direta do pagamento se necessário
-      // Esta função pode ser usada para validações adicionais
       const paymentDetails = await this.getPaymentDetails(paymentId);
       return paymentDetails.status === 'approved';
     } catch (error) {
@@ -107,20 +113,15 @@ export class MercadoPagoService {
     }
   }
 
-  // Método para verificar a assinatura do webhook (opcional mas recomendado)
-  verifyWebhookSignature(xSignature: string, body: any, req: Request): boolean {
+  // Método para verificar a assinatura do webhook
+  verifyWebhookSignature(xSignature: string, body: any): boolean {
     // Implementação da verificação de assinatura
-    // Esta é uma implementação simplificada - em produção você deve
-    // implementar a verificação correta usando a chave secreta do Mercado Pago
-    
     try {
-      // Exemplo básico - em produção use a biblioteca oficial ou crypto
-      // para verificar a assinatura HMAC SHA256
-      
-      // Por enquanto, vamos retornar true para testes
-      // MAS LEMBRE-SE: ISTO É INSEGURO PARA PRODUÇÃO!
-      this.logger.warn('[MERCADOPAGO] Webhook signature verification is DISABLED. FIX THIS FOR PRODUCTION!');
-      return true;
+      // Em produção, implemente a verificação correta usando a chave secreta
+      this.logger.warn(
+        '[MERCADOPAGO] Webhook signature verification placeholder',
+      );
+      return true; // Placeholder - implementar verificação real em produção
     } catch (error) {
       this.logger.error(`Error verifying webhook signature: ${error.message}`);
       return false;

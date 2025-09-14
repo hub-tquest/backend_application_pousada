@@ -3,6 +3,7 @@ import * as admin from 'firebase-admin';
 import * as path from 'path';
 import * as fs from 'fs';
 import { Firestore } from 'firebase-admin/firestore';
+import { getMessaging, Messaging } from 'firebase-admin/messaging'; // Importe getMessaging e Messaging
 
 export interface AppUser {
   uid: string;
@@ -22,6 +23,7 @@ export class FirebaseService {
   public auth: admin.auth.Auth;
   public db: admin.firestore.Firestore;
   public storage: admin.storage.Storage;
+  public messaging: Messaging; // Declare a propriedade messaging com o tipo correto
   private readonly logger = new Logger(FirebaseService.name);
   private static isInitialized = false;
 
@@ -92,6 +94,7 @@ export class FirebaseService {
       this.auth = admin.auth();
       this.db = admin.firestore();
       this.storage = admin.storage();
+      this.messaging = getMessaging(); // <-- Esta é a linha correta
 
       // Só chamar settings() se o Firestore ainda não foi configurado
       try {
@@ -107,6 +110,47 @@ export class FirebaseService {
     } catch (error) {
       this.logger.error('Error setting up Firebase services:', error);
       throw error;
+    }
+  }
+
+  async sendMessage(message: admin.messaging.Message): Promise<string> {
+    try {
+      const response = await this.messaging.send(message);
+      this.logger.log(`Successfully sent message: ${response}`);
+      return response;
+    } catch (error) {
+      this.logger.error('Error sending FCM message:', error);
+      throw new Error(`Failed to send FCM message: ${error.message}`);
+    }
+  }
+
+  // Método para se inscrever em tópicos (opcional)
+  async subscribeToTopic(
+    tokens: string[],
+    topic: string,
+  ): Promise<admin.messaging.MessagingTopicManagementResponse> {
+    try {
+      const response = await this.messaging.subscribeToTopic(tokens, topic);
+      this.logger.log(`Successfully subscribed to topic ${topic}`);
+      return response;
+    } catch (error) {
+      this.logger.error(`Error subscribing to topic ${topic}:`, error);
+      throw new Error(`Failed to subscribe to topic: ${error.message}`);
+    }
+  }
+
+  // Método para se desinscrever de tópicos (opcional)
+  async unsubscribeFromTopic(
+    tokens: string[],
+    topic: string,
+  ): Promise<admin.messaging.MessagingTopicManagementResponse> {
+    try {
+      const response = await this.messaging.unsubscribeFromTopic(tokens, topic);
+      this.logger.log(`Successfully unsubscribed from topic ${topic}`);
+      return response;
+    } catch (error) {
+      this.logger.error(`Error unsubscribing from topic ${topic}:`, error);
+      throw new Error(`Failed to unsubscribe from topic: ${error.message}`);
     }
   }
 

@@ -76,7 +76,11 @@ async function bootstrap() {
   // Configuração de porta - PORT é obrigatória no Cloud Run
   const port = parseInt(process.env.PORT, 10) || 3000;
 
-  await app.listen(port);
+  app.listen(port, '0.0.0.0', () => {
+    console.log(
+      `🚀 Servidor rodando na porta ${port} (acessível pela rede externa)`,
+    );
+  });
 
   console.log(`
 🚀 Pousada Chapada Backend Server
