@@ -16,8 +16,9 @@ export interface AppUser {
 export class FirebaseService {
   public auth: admin.auth.Auth;
   public db: admin.firestore.Firestore;
-  public messaging: admin.messaging.Messaging; // ✅ Adicionado
+  public messaging: admin.messaging.Messaging;
   private readonly logger = new Logger(FirebaseService.name);
+  private static isFirestoreSettingsApplied = false; // ✅ Controle para settings
 
   constructor() {
     this.initializeFirebase();
@@ -80,11 +81,20 @@ export class FirebaseService {
     try {
       this.auth = admin.auth();
       this.db = admin.firestore();
-      this.messaging = admin.messaging(); // ✅ Inicializado
+      this.messaging = admin.messaging();
 
-      this.db.settings({
-        ignoreUndefinedProperties: true,
-      });
+      // ✅ Verificar se settings já foi aplicado
+      if (!FirebaseService.isFirestoreSettingsApplied) {
+        try {
+          this.db.settings({
+            ignoreUndefinedProperties: true,
+          });
+          FirebaseService.isFirestoreSettingsApplied = true;
+          this.logger.log('Firestore settings applied successfully');
+        } catch (settingsError) {
+          this.logger.log('Firestore settings already applied or not needed');
+        }
+      }
 
       this.logger.log('Firebase services initialized successfully');
     } catch (error) {
