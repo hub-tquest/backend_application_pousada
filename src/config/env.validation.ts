@@ -27,33 +27,47 @@ class EnvironmentVariables {
   @IsOptional()
   CORS_ORIGINS?: string;
 
-  // Firebase Configuration
+  // Firebase Configuration - MÉTODO BASE64 (RECOMENDADO)
   @IsString()
-  FIREBASE_PROJECT_ID: string;
+  @IsOptional()
+  FIREBASE_CREDENTIALS_BASE64?: string;
 
   @IsString()
-  FIREBASE_PRIVATE_KEY_ID: string;
+  @IsOptional()
+  FIREBASE_PROJECT_ID?: string;
+
+  // Firebase Configuration - MÉTODO LEGADO (opcional)
+  @IsString()
+  @IsOptional()
+  FIREBASE_PRIVATE_KEY_ID?: string;
 
   @IsString()
-  FIREBASE_PRIVATE_KEY: string;
+  @IsOptional()
+  FIREBASE_PRIVATE_KEY?: string;
 
   @IsString()
-  FIREBASE_CLIENT_EMAIL: string;
+  @IsOptional()
+  FIREBASE_CLIENT_EMAIL?: string;
 
   @IsString()
-  FIREBASE_CLIENT_ID: string;
+  @IsOptional()
+  FIREBASE_CLIENT_ID?: string;
 
   @IsUrl()
-  FIREBASE_AUTH_URI: string;
+  @IsOptional()
+  FIREBASE_AUTH_URI?: string;
 
   @IsUrl()
-  FIREBASE_TOKEN_URI: string;
+  @IsOptional()
+  FIREBASE_TOKEN_URI?: string;
 
   @IsUrl()
-  FIREBASE_AUTH_PROVIDER_X509_CERT_URL: string;
+  @IsOptional()
+  FIREBASE_AUTH_PROVIDER_X509_CERT_URL?: string;
 
   @IsUrl()
-  FIREBASE_CLIENT_X509_CERT_URL: string;
+  @IsOptional()
+  FIREBASE_CLIENT_X509_CERT_URL?: string;
 
   // Mercado Pago Configuration
   @IsString()

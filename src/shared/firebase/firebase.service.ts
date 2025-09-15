@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as admin from 'firebase-admin';
-import * as path from 'path';
-import * as fs from 'fs';
+import { Buffer } from 'buffer';
 
+// Adicione esta interface no topo do arquivo ou em um arquivo separado
 export interface AppUser {
   uid: string;
   email: string;
@@ -16,81 +16,62 @@ export interface AppUser {
 export class FirebaseService {
   public auth: admin.auth.Auth;
   public db: admin.firestore.Firestore;
-  public storage: admin.storage.Storage;
-  public messaging: admin.messaging.Messaging;
+  public messaging: admin.messaging.Messaging; // ✅ Adicionado
   private readonly logger = new Logger(FirebaseService.name);
 
   constructor() {
-    this.logger.log('Initializing Firebase Service');
     this.initializeFirebase();
   }
 
   private initializeFirebase(): void {
     try {
-      // Sempre tentar inicializar um novo app
-      if (admin.apps.length === 0) {
-        this.logger.log('No Firebase app found, initializing new app');
+      // Verificar se já existe um app Firebase
+      if (admin.apps.length > 0) {
+        this.setupServices();
+        return;
+      }
 
-        // Primeiro tentar com variáveis de ambiente
-        if (
-          process.env.FIREBASE_PROJECT_ID &&
-          process.env.FIREBASE_PRIVATE_KEY &&
-          process.env.FIREBASE_CLIENT_EMAIL
-        ) {
-          this.logger.log(
-            'Using environment variables for Firebase initialization',
-          );
+      // Método Base64 (MAIS SEGURO)
+      if (process.env.FIREBASE_CREDENTIALS_BASE64) {
+        this.logger.log('Using Base64 credentials for Firebase initialization');
 
-          const serviceAccount = {
-            type: 'service_account',
-            project_id: process.env.FIREBASE_PROJECT_ID,
-            private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-            private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(
-              /\\n/g,
-              '\n',
-            ),
-            client_email: process.env.FIREBASE_CLIENT_EMAIL,
-            client_id: process.env.FIREBASE_CLIENT_ID,
-            auth_uri:
-              process.env.FIREBASE_AUTH_URI ||
-              'https://accounts.google.com/o/oauth2/auth',
-            token_uri:
-              process.env.FIREBASE_TOKEN_URI ||
-              'https://oauth2.googleapis.com/token',
-            auth_provider_x509_cert_url:
-              process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL ||
-              'https://www.googleapis.com/oauth2/v1/certs',
-            client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
-          };
+        try {
+          // Decodificar Base64
+          const decodedCredentials = Buffer.from(
+            process.env.FIREBASE_CREDENTIALS_BASE64,
+            'base64',
+          ).toString('utf-8');
 
+          // Parse do JSON
+          const serviceAccount = JSON.parse(decodedCredentials);
+
+          // Inicializar Firebase
           admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount as any),
-            projectId: process.env.FIREBASE_PROJECT_ID,
-            databaseURL: process.env.FIREBASE_DATABASE_URL,
+            credential: admin.credential.cert(serviceAccount),
+            projectId:
+              process.env.FIREBASE_PROJECT_ID || serviceAccount.project_id,
           });
 
           this.logger.log(
-            'Firebase initialized with environment variables successfully',
+            'Firebase initialized with Base64 credentials successfully',
           );
-        } else {
-          // Fallback para desenvolvimento
-          this.logger.warn(
-            'Firebase environment variables not found, using default initialization',
-          );
-          admin.initializeApp({
-            projectId: 'pousada-chapada',
-          });
+        } catch (parseError) {
+          this.logger.error('Error parsing Base64 credentials:', parseError);
+          throw new Error('Invalid Base64 credentials format');
         }
       } else {
-        this.logger.log('Using existing Firebase app');
+        // Fallback para variáveis de ambiente individuais
+        this.logger.log(
+          'Using environment variables for Firebase initialization',
+        );
+        admin.initializeApp({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+        });
       }
 
       this.setupServices();
     } catch (error) {
-      this.logger.error('Firebase initialization error:', {
-        message: error.message,
-        stack: error.stack,
-      });
+      this.logger.error('Firebase initialization error:', error);
       throw new Error(`Firebase initialization failed: ${error.message}`);
     }
   }
@@ -99,37 +80,24 @@ export class FirebaseService {
     try {
       this.auth = admin.auth();
       this.db = admin.firestore();
-      this.storage = admin.storage();
-      this.messaging = admin.messaging();
+      this.messaging = admin.messaging(); // ✅ Inicializado
 
-      // Configurar Firestore
-      try {
-        this.db.settings({
-          ignoreUndefinedProperties: true,
-        });
-      } catch (settingsError) {
-        this.logger.log('Firestore settings already applied or not needed');
-      }
+      this.db.settings({
+        ignoreUndefinedProperties: true,
+      });
 
       this.logger.log('Firebase services initialized successfully');
     } catch (error) {
       this.logger.error('Error setting up Firebase services:', error);
-      // Não lançar erro aqui para permitir inicialização parcial
-      this.logger.warn('Firebase services partially initialized');
+      throw error;
     }
   }
 
   // Método para enviar mensagens FCM
   async sendPushNotification(token: string, payload: any): Promise<any> {
     try {
-      // Verificar se messaging está disponível
-      if (!this.messaging) {
-        this.logger.warn('Firebase Messaging not available');
-        return { success: false, message: 'Messaging service not available' };
-      }
-
       const message = {
-        token: token,
+        token,
         notification: {
           title: payload.title,
           body: payload.body,
